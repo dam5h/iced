@@ -1,6 +1,5 @@
 use iced_futures::futures;
 
-use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use warp::ws::WebSocket;
 use warp::Filter;
@@ -36,15 +35,6 @@ pub async fn run() {
 
 async fn user_connected(ws: WebSocket) {
     let (mut user_ws_tx, mut user_ws_rx) = ws.split();
-    let (mut tx, mut rx) = mpsc::unbounded();
-
-    tokio::task::spawn(async move {
-        while let Some(message) = rx.next().await {
-            user_ws_tx.send(message).await.unwrap_or_else(|e| {
-                eprintln!("websocket send error: {}", e);
-            });
-        }
-    });
 
     while let Some(result) = user_ws_rx.next().await {
         let msg = match result {
@@ -52,6 +42,6 @@ async fn user_connected(ws: WebSocket) {
             Err(_) => break,
         };
 
-        let _ = tx.send(msg).await;
+        let _ = user_ws_tx.send(msg).await;
     }
 }
